@@ -16,43 +16,25 @@ const (
 )
 
 // encodeEvidence expresses the package locations as CycloneDX evidence occurrences, the standard field other tools
-// read. The location of an occurrence is a path on the scanned filesystem: for a file within an archive it is the
-// real path of the outermost archive. What else identifies a syft location (the layer it was found in and the full
-// path through any archives) is written as the additional context of the occurrence, so there is an occurrence for
-// each distinct set of coordinates. Annotations are not written.
+// read: one occurrence per distinct path on the scanned filesystem (for a file within an archive, the real path of the
+// outermost archive). The layer and the path within an archive stay in the syft:location properties: an occurrence's
+// additionalContext is written by cyclonedx-go as an XML attribute that the schema does not allow, and this model is
+// what the public cyclonedxhelpers.ToFormatModel returns, so it must be valid in every format and spec version.
+// Annotations are not written.
 func encodeEvidence(locations []file.Location) *cyclonedx.Evidence {
 	var occurrences []cyclonedx.EvidenceOccurrence
-	seen := map[file.Coordinates]struct{}{}
+	seen := strset.New()
 	for _, l := range locations {
-		if l.RealPath == "" {
+		if l.RealPath == "" || seen.Has(l.RealPath) {
 			continue
 		}
-		if _, ok := seen[l.Coordinates]; ok {
-			continue
-		}
-		seen[l.Coordinates] = struct{}{}
-		occurrences = append(occurrences, cyclonedx.EvidenceOccurrence{
-			Location:          l.RealPath,
-			AdditionalContext: encodeOccurrenceContext(l.Coordinates),
-		})
+		seen.Add(l.RealPath)
+		occurrences = append(occurrences, cyclonedx.EvidenceOccurrence{Location: l.RealPath})
 	}
 	if len(occurrences) == 0 {
 		return nil
 	}
 	return &cyclonedx.Evidence{Occurrences: &occurrences}
-}
-
-// encodeOccurrenceContext writes the layer and the full path of the coordinates as "layerID: <id>; fullPath: <path>",
-// leaving out whichever is blank.
-func encodeOccurrenceContext(c file.Coordinates) string {
-	var parts []string
-	if c.FileSystemID != "" {
-		parts = append(parts, occurrenceLayerIDPrefix+c.FileSystemID)
-	}
-	if c.FullPath != "" {
-		parts = append(parts, occurrenceFullPathPrefix+c.FullPath)
-	}
-	return strings.Join(parts, occurrenceContextDivider)
 }
 
 // decodeOccurrenceCoordinates returns the coordinates an occurrence describes. The location is rooted, as the names

@@ -54,13 +54,20 @@
         {
           "name": "syft:package:metadataType",
           "value": "python-package"
+        },
+        {
+          "name": "syft:location:0:layerID",
+          "value": "sha256:redacted"
+        },
+        {
+          "name": "syft:location:0:path",
+          "value": "/somefile-1.txt"
         }
       ],
       "evidence": {
         "occurrences": [
           {
-            "location": "/somefile-1.txt",
-            "additionalContext": "layerID: sha256:redacted"
+            "location": "/somefile-1.txt"
           }
         ]
       }
@@ -86,6 +93,14 @@
           "value": "dpkg-db-entry"
         },
         {
+          "name": "syft:location:0:layerID",
+          "value": "sha256:redacted"
+        },
+        {
+          "name": "syft:location:0:path",
+          "value": "/somefile-2.txt"
+        },
+        {
           "name": "syft:metadata:installedSize",
           "value": "0"
         }
@@ -93,8 +108,7 @@
       "evidence": {
         "occurrences": [
           {
-            "location": "/somefile-2.txt",
-            "additionalContext": "layerID: sha256:redacted"
+            "location": "/somefile-2.txt"
           }
         ]
       }

@@ -31,20 +31,17 @@ func Test_encodeEvidence(t *testing.T) {
 			want: evidenceWithOccurrences("/opt/example", "/usr/bin/example"),
 		},
 		{
-			name: "a path found in several layers is an occurrence per layer",
+			name: "a path found in several layers is one occurrence",
 			locations: []file.Location{
 				file.NewLocationFromCoordinates(file.NewCoordinates("/usr/bin/example", "sha256:layer-1")),
 				file.NewLocationFromCoordinates(file.NewCoordinates("/usr/bin/example", "sha256:layer-2")),
 			},
-			want: &cyclonedx.Evidence{Occurrences: &[]cyclonedx.EvidenceOccurrence{
-				{Location: "/usr/bin/example", AdditionalContext: "layerID: sha256:layer-1"},
-				{Location: "/usr/bin/example", AdditionalContext: "layerID: sha256:layer-2"},
-			}},
+			want: evidenceWithOccurrences("/usr/bin/example"),
 		},
 		{
-			// the location of an occurrence is a path on the scanned filesystem, so packages found within one archive
-			// share the archive as their location and are told apart by the full path in the additional context
-			name: "a file within an archive is an occurrence of the outermost archive",
+			// the location of an occurrence is a path on the scanned filesystem, so files within one archive share the
+			// archive as their location; the full paths stay in the syft:location properties
+			name: "files within an archive are one occurrence of the outermost archive",
 			locations: []file.Location{
 				file.NewLocationFromCoordinates(file.Coordinates{
 					RealPath: "/app.war",
@@ -56,10 +53,7 @@ func Test_encodeEvidence(t *testing.T) {
 					FullPath:     "/app.war!/WEB-INF/lib/other.jar!/META-INF/MANIFEST.MF",
 				}),
 			},
-			want: &cyclonedx.Evidence{Occurrences: &[]cyclonedx.EvidenceOccurrence{
-				{Location: "/app.war", AdditionalContext: "fullPath: /app.war!/WEB-INF/lib/dep.jar"},
-				{Location: "/app.war", AdditionalContext: "layerID: sha256:layer-1; fullPath: /app.war!/WEB-INF/lib/other.jar!/META-INF/MANIFEST.MF"},
-			}},
+			want: evidenceWithOccurrences("/app.war"),
 		},
 		{
 			name: "a location without a path is not an occurrence",
@@ -195,7 +189,7 @@ func Test_evidenceLocationsRoundTrip(t *testing.T) {
 
 	encoded := EncodeComponent(pkg.Package{Name: "example", Locations: file.NewLocationSet(locations...)}, "", file.LocationSorter(nil))
 	require.NotNil(t, encoded.Evidence)
-	require.Len(t, *encoded.Evidence.Occurrences, len(want))
+	require.Len(t, *encoded.Evidence.Occurrences, 3, "one occurrence per distinct path")
 
 	t.Run("properties and occurrences", func(t *testing.T) {
 		// each location is both a syft:location property and an evidence occurrence; decoding must yield each
@@ -205,10 +199,14 @@ func Test_evidenceLocationsRoundTrip(t *testing.T) {
 	})
 
 	t.Run("occurrences alone", func(t *testing.T) {
-		// the occurrences state everything the syft:location properties do
+		// without the properties, a reader that knows only the standard field still gets each path
 		onlyOccurrences := cyclonedx.Component{Name: encoded.Name, Evidence: encoded.Evidence}
 		decoded := decodeComponent(&onlyOccurrences)
-		assert.ElementsMatch(t, want, decoded.Locations.CoordinateSet().ToSlice())
+		assert.ElementsMatch(t, []file.Coordinates{
+			{RealPath: "/opt/example"},
+			{RealPath: "/usr/bin/example"},
+			{RealPath: "/app.war"},
+		}, decoded.Locations.CoordinateSet().ToSlice())
 	})
 }
 

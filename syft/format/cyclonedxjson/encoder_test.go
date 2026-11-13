@@ -158,15 +158,13 @@ func TestCycloneDxLocations_SpecVersions(t *testing.T) {
 	tests := []struct {
 		version         string
 		wantOccurrences bool
-		wantContext     bool
-		wantProperties  bool
 	}{
-		{version: "1.3", wantProperties: true},
-		{version: "1.4", wantProperties: true},
-		{version: "1.5", wantOccurrences: true, wantProperties: true},
-		{version: "1.6", wantOccurrences: true, wantProperties: true},
-		{version: "1.7", wantOccurrences: true, wantContext: true},
-		{version: cyclonedxutil.DefaultVersion, wantOccurrences: true, wantContext: true},
+		{version: "1.3"},
+		{version: "1.4"},
+		{version: "1.5", wantOccurrences: true},
+		{version: "1.6", wantOccurrences: true},
+		{version: "1.7", wantOccurrences: true},
+		{version: cyclonedxutil.DefaultVersion, wantOccurrences: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
@@ -180,17 +178,12 @@ func TestCycloneDxLocations_SpecVersions(t *testing.T) {
 			assert.Equal(t, tt.wantOccurrences, strings.Contains(buf.String(), `"occurrences"`))
 			assert.Equal(t, tt.wantOccurrences, strings.Contains(buf.String(), `"evidence"`))
 
-			// from spec 1.7 the occurrences are the only place locations are written, so they state the layer and
-			// the full path; documents of older spec versions state those in the syft:location properties they keep
-			assert.Equal(t, tt.wantContext, strings.Contains(buf.String(), `"additionalContext"`))
-			assert.Equal(t, tt.wantProperties, strings.Contains(buf.String(), `"syft:location:`))
-
-			// without the additional context there is one occurrence per distinct path
+			// every spec version keeps the syft:location properties, which state the layer and the full path, so the
+			// occurrences carry no additional context and are one per distinct path
+			assert.False(t, strings.Contains(buf.String(), `"additionalContext"`))
+			assert.True(t, strings.Contains(buf.String(), `"syft:location:`))
 			wantExampleOccurrences := 0
-			switch {
-			case tt.wantContext:
-				wantExampleOccurrences = 2
-			case tt.wantOccurrences:
+			if tt.wantOccurrences {
 				wantExampleOccurrences = 1
 			}
 			assert.Equal(t, wantExampleOccurrences, strings.Count(buf.String(), `"location":"/usr/bin/example"`))
